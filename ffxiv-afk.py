@@ -1,7 +1,7 @@
 import sys
 import time
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QCheckBox, QMessageBox, QHBoxLayout
-from PyQt5.QtCore import QTimer, Qt, QMetaObject, QThread
+from PyQt5.QtCore import QTimer, Qt
 from pynput import keyboard, mouse
 import pygetwindow as gw
 import pyautogui
@@ -94,9 +94,6 @@ class App(QMainWindow):
         if elapsed > 120:
             if not self.afk_active:
                 self.activate_afk_mode()
-        else:
-            if self.afk_active:
-                self.deactivate_afk_mode()
 
     def activate_afk_mode(self):
         self.afk_active = True
@@ -104,6 +101,7 @@ class App(QMainWindow):
         self.afk_label.setStyleSheet("color: red;")
         self.ctrl_press_interval = 120
         self.ctrl_timer.start(1000)
+        self.error_shown = False  
 
     def simulate_ctrl_press(self):
         self.ctrl_press_interval -= 1
@@ -120,7 +118,6 @@ class App(QMainWindow):
             window.restore()
             window.activate()
             time.sleep(2)
-            self.simulating_input = True
             pyautogui.press('ctrl')
             time.sleep(1)
             self.simulating_input = False
