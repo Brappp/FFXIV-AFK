@@ -11,7 +11,6 @@ This project is designed to prevent being marked as AFK (Away From Keyboard) in 
 
 ## Usage
 
-- Start the application.
 - The window will display the time since the last input, AFK mode status, and the time until the next `Ctrl` key press.
 - Use the "Keep window on top" checkbox to keep the application window above other windows.
 
