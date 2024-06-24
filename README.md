@@ -15,6 +15,22 @@ This project is designed to prevent being marked as AFK (Away From Keyboard) in 
 - The window will display the time since the last input, AFK mode status, and the time until the next `Ctrl` key press.
 - Use the "Keep window on top" checkbox to keep the application window above other windows.
 
+## Compiling to an Executable
+
+To compile the application to a standalone executable, you will need to install `pyinstaller` and then use it to create the executable.
+
+1. Install `pyinstaller`:
+    ```bash
+    pip install pyinstaller
+    ```
+
+2. Compile the application:
+    ```bash
+    pyinstaller --onefile --windowed ffxiv-afk.py
+    ```
+
+   This will generate a standalone executable in the `dist` directory.
+
 ## UML Sequence Diagram
 
 The following UML sequence diagram illustrates the main flow of the application:
