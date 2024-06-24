@@ -14,6 +14,12 @@ This project is designed to prevent being marked as AFK (Away From Keyboard) in 
 - The window will display the time since the last input, AFK mode status, and the time until the next `Ctrl` key press.
 - Use the "Keep window on top" checkbox to keep the application window above other windows.
 
+## Setup
+
+```
+pip install PyQt5 pynput pygetwindow pyautogui
+```
+
 ## Compiling to an Executable
 
 To compile the application to a standalone executable, you will need to install `pyinstaller` and then use it to create the executable.
