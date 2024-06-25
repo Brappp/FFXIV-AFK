@@ -3,7 +3,7 @@ import time
 import ctypes
 from ctypes import wintypes
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QCheckBox, QHBoxLayout, QMessageBox
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtCore import QUrl
 from pynput import keyboard, mouse
@@ -40,30 +40,14 @@ def send_input(hwnd, vk, scan, flags):
                                                            dwFlags=flags,
                                                            time=0,
                                                            dwExtraInfo=user32.GetMessageExtraInfo())))
-    user32.PostMessageA(hwnd, 0x100, vk, 0) # WM_KEYDOWN
-    user32.PostMessageA(hwnd, 0x101, vk, 0) # WM_KEYUP
+    user32.PostMessageA(hwnd, 0x100, vk, 0)  # WM_KEYDOWN
+    user32.PostMessageA(hwnd, 0x101, vk, 0)  # WM_KEYUP
 
 def get_ffxiv_hwnd():
     windows = gw.getWindowsWithTitle('FINAL FANTASY XIV')
     if windows:
         return windows[0]._hWnd
     return None
-
-class InputMonitor:
-    """ Monitor system-wide keyboard and mouse events, check if they occur with FFXIV active """
-    def __init__(self, callback):
-        self.last_active_time = time.time()
-        self.callback = callback
-        self.keyboard_listener = keyboard.Listener(on_press=self.on_input_detected)
-        self.mouse_listener = mouse.Listener(on_click=self.on_input_detected)
-        self.keyboard_listener.start()
-        self.mouse_listener.start()
-
-    def on_input_detected(self, *args):
-        """ Update the last active time if FFXIV is the active window when input is detected """
-        if is_ffxiv_active():
-            self.last_active_time = time.time()
-            self.callback()
 
 def is_ffxiv_active():
     """ Check if 'FINAL FANTASY XIV' is the active window """
@@ -73,17 +57,39 @@ def is_ffxiv_active():
     except IndexError:
         return False
 
+class InputMonitor(QObject):
+    """ Monitor system-wide keyboard and mouse events, check if they occur with FFXIV active """
+    activity_detected = pyqtSignal()  
+
+    def __init__(self):
+        super().__init__()
+        self.last_active_time = time.time()
+        self.keyboard_listener = keyboard.Listener(on_press=self.on_input_detected, on_release=self.on_input_detected)
+        self.mouse_listener = mouse.Listener(on_click=self.on_input_detected)
+        self.keyboard_listener.start()
+        self.mouse_listener.start()
+
+    def on_input_detected(self, *args):
+        """ Update the last active time if FFXIV is the active window when input is detected """
+        if is_ffxiv_active():
+            self.last_active_time = time.time()
+            self.activity_detected.emit()
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.countdown_time = 300  
         self.initUI()
-        self.input_monitor = InputMonitor(self.reset_afk_mode)
+        self.input_monitor = InputMonitor()
+        self.input_monitor.activity_detected.connect(self.reset_afk_mode)
         self.error_shown = False
 
-        self.countdown_time = 120
-        self.inactivity_timer = QTimer(self)
-        self.inactivity_timer.timeout.connect(self.check_inactivity)
-        self.inactivity_timer.start(1000)  
+        self.inactivity_check_timer = QTimer(self)
+        self.inactivity_check_timer.timeout.connect(self.check_inactivity)
+        self.inactivity_check_timer.start(10000) 
+
+        self.countdown_timer = QTimer(self)
+        self.countdown_timer.timeout.connect(self.update_countdown)
 
     def initUI(self):
         self.setWindowTitle('FFXIV Anti-AFK')
@@ -94,7 +100,7 @@ class App(QMainWindow):
         self.setCentralWidget(self.central_widget)
         layout = QVBoxLayout(self.central_widget)
 
-        self.timer_label = QLabel('Sending Ctrl in: 120 seconds', self)
+        self.timer_label = QLabel(f'Sending Ctrl in: {self.countdown_time} seconds', self)
         self.timer_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.timer_label)
 
@@ -129,28 +135,32 @@ class App(QMainWindow):
         self.input_monitor.last_active_time = time.time()
         self.afk_label.setText('AFK mode: OFF')
         self.afk_label.setStyleSheet("color: green;")
-        self.countdown_time = 120
+        self.countdown_timer.stop()
+        self.countdown_time = 300
+        self.timer_label.setText(f'Sending Ctrl in: {self.countdown_time} seconds')
+
+    def update_countdown(self):
+        """ Update the countdown timer every second """
+        self.countdown_time -= 1
+        if self.countdown_time <= 0:
+            self.press_ctrl()
+            self.reset_afk_mode()
+        self.timer_label.setText(f'Sending Ctrl in: {self.countdown_time} seconds')
 
     def check_inactivity(self):
         """ Check if the user has been inactive and update UI """
         elapsed = time.time() - self.input_monitor.last_active_time
 
-        if elapsed > 0 and self.afk_label.text() == 'AFK mode: OFF':  
-            self.afk_label.setText('AFK mode: ON')
-            self.afk_label.setStyleSheet("color: red;")
-
-        if elapsed >= 1:
-            self.countdown_time -= 1
-            self.timer_label.setText(f'Sending Ctrl in: {self.countdown_time} seconds')
-
-        if self.countdown_time <= 0:
-            self.press_ctrl()
-            self.reset_afk_mode()
+        if elapsed >= 30:
+            if not self.countdown_timer.isActive():
+                self.countdown_timer.start(1000)  
+                self.afk_label.setText('AFK mode: ON')
+                self.afk_label.setStyleSheet("color: red;")
 
     def press_ctrl(self):
         hwnd_ffxiv = get_ffxiv_hwnd()
         if hwnd_ffxiv:
-            send_input(hwnd_ffxiv, 0x11, 0, 0) 
+            send_input(hwnd_ffxiv, 0x11, 0, 0)
         else:
             if not self.error_shown:
                 self.error_shown = True
@@ -166,7 +176,7 @@ class App(QMainWindow):
         error_message.exec_()
 
     def error_button_clicked(self, button):
-        self.error_shown = False 
+        self.error_shown = False
         if button.text() == "Close":
             sys.exit()
 
