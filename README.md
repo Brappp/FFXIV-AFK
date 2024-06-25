@@ -2,7 +2,7 @@
 
 This project is designed to prevent being marked as AFK (Away From Keyboard) in the game Final Fantasy XIV. The application monitors user input and simulates key presses to ensure the game remains active.
 
-[Download FFXIV-AFK v1](https://github.com/Brappp/FFXIV-AFK/releases/tag/v1)
+[Download FFXIV-AFK](https://github.com/Brappp/FFXIV-AFK/releases/tag/v1)
 
 ## Features
 
